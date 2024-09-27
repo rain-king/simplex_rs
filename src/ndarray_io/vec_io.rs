@@ -1,4 +1,4 @@
-use std::io::{stdin, Read};
+use std::io::stdin;
 
 pub fn parse_float_vec(line: &str) -> Vec<f64> {
 	let vector: Vec<f64> = line
@@ -16,7 +16,7 @@ pub fn read_vec(message: &str) -> Vec<f64> {
 	let mut line: String = String::new();
 	stdin().read_line(&mut line).unwrap();
 
-	let mut vector: Vec<f64> = line.split_whitespace()
+	let vector: Vec<f64> = line.split_whitespace()
 		.map(|x| x.parse().unwrap())
 		.collect();
 	vector

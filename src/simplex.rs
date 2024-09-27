@@ -41,21 +41,21 @@ fn iterations(tableau: &mut matrix<f64>) -> Vec<(usize, usize)> {
 	// create initial basis from basic form
 	let mut basis = initialize_basis(tableau.to_owned());
 
-	println!("Initial basis:\n{:?}", basis);
+	// println!("Initial basis:\n{:?}", basis);
 
 	while tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x < 0.0) {
 		let (pivot_row_index, pivot_column_index) = pivot(tableau);
 		// println!("The pivot indexes are: {pivot_row_index} {pivot_column_index}:");
-		for i in 0..basis.len() {
+		for element in basis.iter_mut() {
 			// variable with pivot column enters, variable with pivot row exits
-			if basis[i].0 == pivot_row_index {
+			if element.0 == pivot_row_index {
 				// println!("{:?}", basis);
-				basis[i] = (pivot_row_index, pivot_column_index);
+				*element = (pivot_row_index, pivot_column_index);
 			}
 		}
-		println!("The current basis indexes are\n{:?}", basis);
+		// println!("The current basis indexes are\n{:?}", basis);
 		// pretty_print_array2(&tableau);
-		println!("");
+		// println!("");
 	}
 
 	basis
