@@ -21,3 +21,4 @@ Notice the newline characters.
 # TO-DO
 1. Two-phase method for other kinds of constraints.
 1. Support for minimization.
+1. Assert correct dimensions.
