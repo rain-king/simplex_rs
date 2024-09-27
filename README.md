@@ -19,6 +19,5 @@ You can parse a file `input.txt` with the following format using redirection `pr
 Notice the newline characters. 
 
 # TO-DO
-1. Support for $\geq$ inequality contraints ($b$) not restricted to be greater than or equal than zero.
-2. Support for equality constraints.
-3. Support for minimization (two-phase method).
+1. Two-phase method for other kinds of constraints.
+1. Support for minimization.
