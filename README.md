@@ -6,7 +6,7 @@ Maximizing $Z(x) = c\dot x$ subject to the constraints $Ax \leq b$ with $x \geq 
 You can parse a file `input.txt` with the following format using redirection `program <input.txt`
 ```
 [input.txt contents]
-<c vector element separated by spaces>
+<c values separated by spaces>
 
 <A row 1 values separated by spaces>
 <A row 2>
