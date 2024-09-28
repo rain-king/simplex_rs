@@ -33,3 +33,4 @@ Notice the newline characters. Since when running the program interactively, the
 1. Assert correct dimensions.
 2. Determine if the solution is unbounded.
 3. Add command line option to choose float precision, which might be needed with a higher number of variables or constraints.
+4. Check if it works with only equalities. I have not found a problem with only equalities and a known solution because I haven't searched for one.
