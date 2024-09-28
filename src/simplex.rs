@@ -53,14 +53,12 @@ fn original_tableau(z: &Z, a_matrix: &A, b: &B) -> matrix<f64> {
     let slacks: matrix<f64>;
     let a_slacks: matrix<f64>;
     let mut geq_artificials = matrix::zeros((b.ineq.nrows(), 0));
-    let mut geq_artificials_rows: Vec<usize> = Vec::new();
-
     if a_matrix.eq.is_empty() {
         stacked_a_matrix = a_matrix.ineq.to_owned();
         stacked_b = b.ineq.to_owned();
         slacks = matrix::eye(a_matrix.ineq.nrows() + a_matrix.eq.nrows());
         a_slacks = concatenate![Axis(1), stacked_a_matrix, slacks];
-        (geq_artificials_rows, geq_artificials) = geq_artificials_pack(b);
+        geq_artificials = geq_artificials_pack(b);
     } else if a_matrix.ineq.is_empty() {
         stacked_a_matrix = a_matrix.eq.to_owned();
         stacked_b = b.eq.to_owned();
@@ -71,7 +69,7 @@ fn original_tableau(z: &Z, a_matrix: &A, b: &B) -> matrix<f64> {
         stacked_b = concatenate![Axis(0), b.ineq, b.eq];
         slacks = matrix::eye(a_matrix.ineq.nrows() + a_matrix.eq.nrows());
         a_slacks = concatenate![Axis(1), stacked_a_matrix, slacks];
-        (geq_artificials_rows, geq_artificials) = geq_artificials_pack(b);
+        geq_artificials = geq_artificials_pack(b);
     }
 
     let stacked_geq_artificials = concatenate![
@@ -105,14 +103,14 @@ fn initialize_to_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
     let slacks: matrix<f64>;
     let a_slacks: matrix<f64>;
     let mut geq_artificials = matrix::zeros((b.ineq.nrows(), 0));
-    let mut geq_artificials_rows: Vec<usize> = Vec::new();
+    let geq_artificials_rows: Vec<usize> = Vec::new();
 
     if a_matrix.eq.is_empty() {
         stacked_a_matrix = a_matrix.ineq.to_owned();
         stacked_b = b.ineq.to_owned();
         slacks = matrix::eye(a_matrix.ineq.nrows() + a_matrix.eq.nrows());
         a_slacks = concatenate![Axis(1), stacked_a_matrix, slacks];
-        (geq_artificials_rows, geq_artificials) = geq_artificials_pack(b);
+        geq_artificials = geq_artificials_pack(b);
     } else if a_matrix.ineq.is_empty() {
         stacked_a_matrix = a_matrix.eq.to_owned();
         stacked_b = b.eq.to_owned();
@@ -123,7 +121,7 @@ fn initialize_to_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
         stacked_b = concatenate![Axis(0), b.ineq, b.eq];
         slacks = matrix::eye(a_matrix.ineq.nrows() + a_matrix.eq.nrows());
         a_slacks = concatenate![Axis(1), stacked_a_matrix, slacks];
-        (geq_artificials_rows, geq_artificials) = geq_artificials_pack(b);
+        geq_artificials = geq_artificials_pack(b);
     }
 
     let stacked_geq_artificials = concatenate![
@@ -269,18 +267,16 @@ fn phase_two(tableau: matrix<f64>, c: matrix<f64>, basis: Vec<(usize, usize)>) -
     tableau_phase_two
 }
 
-fn geq_artificials_pack(b: &B) -> (Vec<usize>, matrix<f64>) {
+fn geq_artificials_pack(b: &B) -> matrix<f64> {
     let mut geq_artificials = matrix::zeros((b.ineq.nrows(), 0));
-    let mut geq_artificials_rows: Vec<usize> = Vec::new();
     for (i, value) in b.ineq.column(0).iter().enumerate() {
         let mut geq_artificial_column = matrix::zeros((b.ineq.nrows(), 1));
         if *value < 0.0 {
             geq_artificial_column[(i, 0)] = -1.0;
             geq_artificials = concatenate![Axis(1), geq_artificials, geq_artificial_column];
-            geq_artificials_rows.push(i + 1); // row in complete tableau
         }
     }
-    (geq_artificials_rows, geq_artificials)
+    geq_artificials
 }
 
 // THIS CODE SUPPOSES THE TABLEAU IS IN BASIC FORM
