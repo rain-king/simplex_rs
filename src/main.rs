@@ -1,14 +1,16 @@
 // #![allow(warnings)]
 
+mod simplex_args;
+use simplex_args::{Z, A, B};
+
 mod ndarray_io;
 use ndarray_io as io;
 
 mod simplex;
-use simplex::max_simplex;
+use simplex::two_phase_simplex;
 
 use std::io::stdin;
 use std::io::BufRead; // needed to read empty lines without storing them
-
 
 fn main() {
 	println!("This is a program that solves the maximization or minimization of");
@@ -37,8 +39,20 @@ fn main() {
 
 	let b_eq = io::read_column("Enter the b_eq column values separated by spaces.");
 
-	println!("{maximize}");
-	max_simplex(maximize, c, a_matrix, b, eq_matrix, b_eq);
+	let z = Z {
+		maximize,
+		c
+	};
+	let a_matrix = A {
+		ineq: a_matrix,
+		eq: eq_matrix
+	};
+	let b = B {
+		ineq: b,
+		eq: b_eq
+	};
+
+	two_phase_simplex(z, a_matrix, b);
 }
 
 fn read_bool() -> bool {
