@@ -26,11 +26,10 @@ You can parse a file `input.txt` with the following format using redirection `pr
 Notice the newline characters. Since when running the program interactively, the user is prompted to press Return again after every data input, except the last input.
 
 # Efficacy tests
-- According to [https://www.pmcalculators.com/simplex-method-calculator/](https://www.pmcalculators.com/simplex-method-calculator/?problem=('cr![.2-6-3-4*4-1572573*C--*-C-*3B4-2*CCC18]~co!.2-3B158~s!.99AA=7=8~r!.3B3-4B18~o!'Maximizar')*08,.-07.['7'~8']9≥7A≤7B-2-C17CBA987.-*_), the solution to `min_example4.txt` is correct.
-- Testing with `np.optimization.linprog`, the `min_example4.txt` gives a higher target result (in a minimization problem), suggesting `linprog` is failing to reach the optimal solution with both the highs and simplex method.
+- Testing with `np.optimization.linprog` (with both `highs` and `simplex` methods), the `min_example4.txt` on our program gives the same target optimal value and the same optimal solution.
 - Testing maximization problems is a more trivial matter. So the `example2.txt` was done by hand and returned a correct answer in our program.
 
 # TO-DO
 1. Assert correct dimensions.
 2. Determine if the solution is unbounded.
-3. Add command line option to choose float precisio, which might be needed with a higher number of variables or constraints.
+3. Add command line option to choose float precision, which might be needed with a higher number of variables or constraints.
