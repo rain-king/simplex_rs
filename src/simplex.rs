@@ -204,9 +204,6 @@ fn initialize_to_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
                 .zip(pivot_row.iter())
                 .for_each(|(value, &pivot_value)| *value += pivot_value);
         }
-        println!("Before phase 1 simplex pass.");
-        pretty_print_array2(&tableau);
-        println!();
     }
 
     (tableau, !only_leq_constraints)
@@ -259,10 +256,6 @@ fn phase_two(tableau: matrix<f64>, c: matrix<f64>, basis: Vec<(usize, usize)>) -
             .zip(pivot_row.into_iter())
             .for_each(|(value, pivot_value)| *value -= pivot_value * to_be_deleted_value);
     }
-
-    println!("Before phase two");
-    pretty_print_array2(&tableau_phase_two);
-    println!();
 
     tableau_phase_two
 }
