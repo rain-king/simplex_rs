@@ -1,14 +1,10 @@
 // #![allow(warnings)]
-
 mod simplex_args;
-use simplex_args::{Z, A, B};
-
 mod ndarray_io;
-use ndarray_io as io;
-
 mod simplex;
+use simplex_args::{Z, A, B};
+use ndarray_io as io;
 use simplex::two_phase_simplex;
-
 use std::io::stdin;
 use std::io::BufRead; // needed to read empty lines without storing them
 

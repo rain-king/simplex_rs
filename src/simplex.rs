@@ -1,11 +1,7 @@
 use core::f64;
-
 use crate::simplex_args::{A, B, Z};
-
 use crate::ndarray_io::pretty_print_array2;
-
-use nd::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
-use ndarray as nd;
+use ndarray::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
 
 pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 	let mut tableau: matrix<f64>;
@@ -58,13 +54,21 @@ fn original_tableau(z: &Z, a_matrix: &A, b: &B) -> matrix<f64> {
 	concatenate![Axis(0), tableau_top, tableau_bottom]
 }
 
-fn initialize_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
-	let tableau_bottom = get_tableu_bottom(a_matrix, b);
-
+fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
+	let tableau_bottom = get_tableu_bottom(a, b);
 	let tableau_top: matrix<f64>;
-	let only_ineq_constraints = a_matrix.ineq.nrows()+a_matrix.eq.nrows() == a_matrix.ineq.nrows();
-	if only_ineq_constraints {
-		// only <= constraints, prepare for regular simplex
+
+	let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&x| x < 0.0).count();
+	let n_leq_ineqs = a.ineq.column(0).iter().filter(|&&x| x >= 0.0).count();
+	let n_ineqs = a.ineq.nrows();
+	let n_eqs = a.eq.nrows();
+
+	let only_ineq_constraints = n_eqs == 0;
+	let only_leq_constraints = n_geq_ineqs + n_eqs == 0;
+	let only_eqs = n_ineqs == 0;
+
+	if only_leq_constraints {
+		// only ineq constraints, prepare for regular simplex
 		tableau_top = concatenate![
 			Axis(1),
 			if z.maximize {
@@ -74,49 +78,58 @@ fn initialize_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
 			},
 			matrix::zeros((1, tableau_bottom.ncols() - z.c.ncols()))
 		];
-	} else {
-		// mixed constraints, prepare top for phase two
+	} else { // at least one artificial variable needed, prepare for phase one
 		let mut w_top: matrix<f64> = matrix::zeros((1, tableau_bottom.ncols()));
 		let w_top_ncols = w_top.ncols().to_owned();
-		let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&value| value < 0.0).count();
 
 		let artificials_column_index_start =
-			w_top.ncols() - 1 - (n_geq_ineqs + a_matrix.eq.nrows());
+			w_top.ncols() - 1 - (n_geq_ineqs + a.eq.nrows());
 		w_top
 			.columns_mut()
 			.into_iter()
 			.enumerate()
 			.filter(|(j, _)| artificials_column_index_start <= *j && *j < w_top_ncols - 1)
-			.for_each(|(_, column)| {
+			.for_each(|(_, column)|
 				for value in column {
 					*value = -1.0;
 				}
-			});
+			);
 		tableau_top = w_top;
 	};
 
 	let mut tableau = concatenate![Axis(0), tableau_top, tableau_bottom];
 
-	if !only_ineq_constraints {
-		if !a_matrix.ineq.is_empty() {
-			// convert >= constraints into <= constraints
-			tableau.rows_mut().into_iter()
-				.filter(|row| row[row.len() - 1] < 0.0)
-				.for_each(|row| {
-					for value in row {
-						*value *= -1.0;
-					}
-				});
-		}
+	if n_geq_ineqs > 0 {
+		// convert >= constraints into <= constraints
+		tableau.rows_mut().into_iter()
+			.filter(|row| row[row.len() - 1] < 0.0)
+			.for_each(|row|
+				for value in row {
+					*value *= -1.0;
+				}
+			);
+	}
 
-		let pivot_row_iterator: std::ops::Range<usize>;
-		if a_matrix.ineq.is_empty() {
-			pivot_row_iterator = 1..(a_matrix.eq.nrows() + 1);
+	if !only_leq_constraints { // there are artificials
+		let pivot_row_range: std::ops::RangeInclusive<usize>;
+		let mut pivot_vec: Vec<usize> = Vec::new();
+		if a.ineq.is_empty() {
+			// only equality artificials, pivot second to last row
+			pivot_row_range = 1..=n_eqs;
+		} else if a.eq.is_empty() {
+			// only >= constraints
+			let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&value| value < 0.0).count();
+			pivot_row_range = 1..=n_geq_ineqs;
 		} else {
-			pivot_row_iterator = (a_matrix.ineq.nrows() + 1)..(tableau_bottom.nrows() + 1);
+			pivot_row_range = (n_ineqs+1)..=n_eqs;
+			pivot_vec = b.ineq.column(0).into_iter()
+					.enumerate()
+					.filter(|(_, &x)| x < 0.0)
+					.map(|(i, _)| i)
+					.collect();
 		}
 
-		for i in pivot_row_iterator {
+		for i in pivot_row_range.chain(pivot_vec) {
 			let pivot_row = tableau.row(i).to_owned();
 			tableau
 				.row_mut(0)
@@ -126,7 +139,7 @@ fn initialize_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
 		}
 	}
 
-	(tableau, !only_ineq_constraints)
+	(tableau, !only_leq_constraints)
 }
 
 fn get_tableu_bottom(a_matrix: &A, b: &B) -> matrix<f64> {
