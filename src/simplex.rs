@@ -28,7 +28,7 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 		pretty_print_array2(&tableau);
 		println!();
 
-		if tableau.row(0)[tableau.ncols() -1] > EPSILON {
+		if tableau.row(0)[tableau.ncols() -1] >= EPSILON {
 			println!("The problem is infeasible.");
 			return basis;
 		}
@@ -282,7 +282,7 @@ fn initialize_basis(tableau: matrix<f64>) -> Vec<(usize, usize)> {
 }
 
 fn is_basic(column: vector<f64>) -> bool {
-	let has_only_one_1 = column.iter().filter(|&&x| (x - 1.0).abs() < EPSILON).count() == 1;
+	let has_only_one_1 = column.iter().filter(|&&x| (x - 1.0).abs() <= EPSILON).count() == 1;
 	let everything_else_is_0 = column.iter().filter(|&&x| x.abs() <= EPSILON).count() == column.len() - 1;
 	has_only_one_1 && everything_else_is_0
 }
