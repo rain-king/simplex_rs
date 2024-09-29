@@ -29,7 +29,7 @@ pub fn read_vecvec(message: &str) -> Result<Vec<Vec<f64>>, String> {
 	if !message.is_empty() {
 		println!("{message}");
 	}
-	
+
 	let mut i: usize = 0;
 	loop {
 		stdin().read_line(&mut line).unwrap();
@@ -45,13 +45,4 @@ pub fn read_vecvec(message: &str) -> Result<Vec<Vec<f64>>, String> {
 		i += 1;
 	}
 	Ok(matrix)
-}
-
-pub fn print_vecvec(matrix: Vec<Vec<f64>>) {
-	for vector in matrix {
-		for valor in vector {
-			println!("{valor}\t");
-		}
-		println!();
-	}
 }

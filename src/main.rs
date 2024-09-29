@@ -25,7 +25,7 @@ fn main() {
 
 	let c = io::read_row("Enter the c vector values separated by spaces, then press return again.");
 	stdin().lock().lines().next(); // read empty line
-	
+
 	let a_matrix = io::read_matrix(&format!("{}{}",
 		 "Enter the A matrix values row by row, with values separated by spaces,\n",
 		 "then press Return again."));
