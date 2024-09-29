@@ -3,41 +3,18 @@ use crate::simplex_args::{A, B, Z};
 use crate::ndarray_io::pretty_print_array2;
 use ndarray::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
 
-pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
-	let mut tableau: matrix<f64>;
-	let to_phase_two: bool;
+pub fn big_m_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 	let mut basis: Vec<(usize, usize)> = Vec::new();
-
+	let mut tableau = original_tableau(&z, &a_matrix, &b);
+	
 	println!();
-	tableau = original_tableau(&z, &a_matrix, &b);
 	println!("The initial tableau is:");
 	pretty_print_array2(&tableau);
 	println!();
 
-	(tableau, to_phase_two) = initialize_phase_one(&z, &a_matrix, &b);
-
-	if to_phase_two {
-		println!("The tableau before phase one is:");
-		pretty_print_array2(&tableau);
-		println!();
-
-		basis = iterations(z.maximize, &mut tableau);
-		println!("The tableau after phase one is:");
-		pretty_print_array2(&tableau);
-		println!();
-
-		if tableau.row(0)[tableau.ncols() -1] > 1.0E-6 {
-			println!("The problem is infeasible.");
-			return basis;
-		}
-
-		tableau = initialize_phase_two(tableau, z.c, &basis);
-
-		println!("The initialized tableau for phase two is:");
-		pretty_print_array2(&tableau);
-		println!();
-	}
-	basis = iterations(z.maximize, &mut tableau);
+	tableau = initialize(&z, &a_matrix, &b);
+	
+	basis = iterations(&mut tableau);
 	println!("The final tableau is:");
 	pretty_print_array2(&tableau);
 	println!();
@@ -57,54 +34,51 @@ fn original_tableau(z: &Z, a_matrix: &A, b: &B) -> matrix<f64> {
 		},
 		matrix::zeros((1, tableau_bottom.ncols() - z.c.ncols()))
 	];
-	concatenate![Axis(0), tableau_top, tableau_bottom]
+	
+	let tableau = concatenate![Axis(0), tableau_top, tableau_bottom];
+	
+	tableau
 }
 
-fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
+fn initialize(z: &Z, a: &A, b: &B) -> matrix<f64> {
 	let tableau_bottom = get_tableu_bottom(a, b);
-	let tableau_top: matrix<f64>;
+	let mut tableau_top: matrix<f64>;
 
 	let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&x| x < 0.0).count();
-	let n_leq_ineqs = a.ineq.column(0).iter().filter(|&&x| x >= 0.0).count();
 	let n_ineqs = a.ineq.nrows();
 	let n_eqs = a.eq.nrows();
 
-	let only_ineq_constraints = n_eqs == 0;
 	let only_leq_constraints = n_geq_ineqs + n_eqs == 0;
-	let only_eqs = n_ineqs == 0;
 
-	if only_leq_constraints {
-		// only ineq constraints, prepare for regular simplex
-		tableau_top = concatenate![
-			Axis(1),
-			if z.maximize {
-				-z.c.clone()
-			} else {
-				z.c.clone()
-			},
-			matrix::zeros((1, tableau_bottom.ncols() - z.c.ncols()))
-		];
-	} else { // at least one artificial variable needed, prepare for phase one
-		let mut w_top: matrix<f64> = matrix::zeros((1, tableau_bottom.ncols()));
-		let w_top_ncols = w_top.ncols().to_owned();
+	tableau_top = concatenate![
+		Axis(1),
+		if z.maximize {
+			-z.c.clone()
+		} else {
+			z.c.clone()
+		},
+		matrix::zeros((1, tableau_bottom.ncols() - z.c.ncols()))
+	];
+	let mut tableau = concatenate![Axis(0), tableau_top, tableau_bottom];
+	
+	let big_m = tableau.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap()*10.0;
 
-		let artificials_column_index_start =
-			w_top.ncols() - 1 - (n_geq_ineqs + a.eq.nrows());
-		w_top
+	if !only_leq_constraints {
+		let artificials_column_index_start = tableau_top.ncols() - 1 - (n_geq_ineqs + a.eq.nrows());
+		let tableau_top_ncols = tableau_top.ncols();
+		tableau_top
 			.columns_mut()
 			.into_iter()
 			.enumerate()
-			.filter(|(j, _)| artificials_column_index_start <= *j && *j < w_top_ncols - 1)
+			.filter(|(j, _)| artificials_column_index_start <= *j && *j < tableau_top_ncols - 1)
 			.for_each(|(_, column)|
 				for value in column {
-					*value = -1.0;
+					*value = if z.maximize {-big_m} else {big_m};
 				}
 			);
-		tableau_top = w_top;
-	};
-
-	let mut tableau = concatenate![Axis(0), tableau_top, tableau_bottom];
-
+			tableau = concatenate![Axis(0), tableau_top, tableau_bottom];
+	}
+	
 	if n_geq_ineqs > 0 {
 		// convert >= constraints into <= constraints
 		tableau.rows_mut().into_iter()
@@ -141,11 +115,14 @@ fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
 				.row_mut(0)
 				.iter_mut()
 				.zip(pivot_row.iter())
-				.for_each(|(value, &pivot_value)| *value += pivot_value);
+				.for_each(|(value, &pivot_value)| *value += if z.maximize {pivot_value*big_m} else {-pivot_value*big_m});
 		}
 	}
-
-	(tableau, !only_leq_constraints)
+	
+	// dbg!(&tableau.row(0));
+	// panic!();
+	
+	tableau
 }
 
 fn get_tableu_bottom(a_matrix: &A, b: &B) -> matrix<f64> {
@@ -182,54 +159,6 @@ fn get_tableu_bottom(a_matrix: &A, b: &B) -> matrix<f64> {
 	concatenate![Axis(1), a_slacks_geq, stacked_b]
 }
 
-fn initialize_phase_two(tableau: matrix<f64>, c: matrix<f64>, basis: &Vec<(usize, usize)>) -> matrix<f64> {
-	let z_top = concatenate![
-		Axis(1),
-		-c.to_owned(),
-		matrix::zeros((1, tableau.ncols() - c.ncols()))
-	];
-
-	let tableau_phase_two = concatenate![Axis(0), z_top, tableau.slice(s![1.., ..])];
-
-	let basis_cols: Vec<usize> = basis.iter().map(|&x| x.1).collect();
-
-	let phase_two_columns: Vec<Vec<f64>> = tableau_phase_two
-		.columns()
-		.into_iter()
-		.enumerate()
-		.filter(|(j, _)| {
-			(0..c.ncols()).contains(j) || basis_cols.contains(j) || *j == (tableau.ncols() - 1)
-		})
-		.map(|(_, column)| column.to_owned().to_vec())
-		.collect();
-
-	// SHADOWING
-	let mut tableau_phase_two = matrix::zeros((tableau.nrows(), 0));
-
-	for vec_column in phase_two_columns {
-		let column = matrix::from_shape_vec((tableau.nrows(), 1), vec_column).unwrap();
-		tableau_phase_two = concatenate![Axis(1), tableau_phase_two, column]
-	}
-
-	let basis_phase_two: Vec<(usize, usize)> = basis
-		.iter()
-		.filter(|element| element.1 < c.ncols())
-		.map(|x| *x)
-		.collect();
-
-	for (pivot_row_i, pivot_column_i) in basis_phase_two {
-		let pivot_row = tableau_phase_two.row(pivot_row_i).to_owned();
-		let to_be_deleted_value = tableau_phase_two.row(0)[pivot_column_i];
-		tableau_phase_two
-			.row_mut(0)
-			.iter_mut()
-			.zip(pivot_row.into_iter())
-			.for_each(|(value, pivot_value)| *value -= pivot_value * to_be_deleted_value);
-	}
-
-	tableau_phase_two
-}
-
 fn get_geq_artificials(b: &B) -> matrix<f64> {
 	let mut geq_artificials = matrix::zeros((b.ineq.nrows(), 0));
 	for (i, value) in b.ineq.column(0).iter().enumerate() {
@@ -242,12 +171,12 @@ fn get_geq_artificials(b: &B) -> matrix<f64> {
 	geq_artificials
 }
 
-fn iterations(maximize: bool, tableau: &mut matrix<f64>) -> Vec<(usize, usize)> {
+fn iterations(tableau: &mut matrix<f64>) -> Vec<(usize, usize)> {
 	let mut basis = initialize_basis(tableau.to_owned());
 
 	let mut iteration = 1;
-	while not_optimal(tableau, maximize) {
-		let (pivot_row_index, pivot_column_index) = pivot(tableau, maximize);
+	while not_optimal(tableau) {
+		let (pivot_row_index, pivot_column_index) = pivot(tableau);
 		for element in basis.iter_mut() {
 			// variable with pivot column enters, variable with pivot row exits
 			if element.0 == pivot_row_index {
@@ -288,16 +217,12 @@ fn is_basic(column: vector<f64>) -> bool {
 	has_only_one_1 && everything_else_is_0
 }
 
-fn not_optimal(tableau: &mut matrix<f64>, maximize: bool) -> bool {
-	if maximize {
-		tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x < 0.0)
-	} else {
-		tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x > 0.0)
-	}
+fn not_optimal(tableau: &matrix<f64>) -> bool {
+	tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x < 0.0)
 }
 
-fn pivot(tableau: &mut matrix<f64>, maximize: bool) -> (usize, usize) {
-	let (pivot_row_index, pivot_column_index) = pivot_indexes(tableau, maximize);
+fn pivot(tableau: &mut matrix<f64>) -> (usize, usize) {
+	let (pivot_row_index, pivot_column_index) = pivot_indexes(tableau);
 
 	let normalization_scalar = tableau[(pivot_row_index, pivot_column_index)].to_owned();
 	tableau
@@ -315,12 +240,8 @@ fn pivot(tableau: &mut matrix<f64>, maximize: bool) -> (usize, usize) {
 	(pivot_row_index, pivot_column_index)
 }
 
-fn pivot_indexes(tableau: &mut matrix<f64>, maximize: bool) -> (usize, usize) {
-	let pivot_column_index = if maximize {
-		argmin(tableau.row(0).slice(s![..-1]).to_owned())
-	} else {
-		argmax(tableau.row(0).slice(s![..-1]).to_owned())
-	};
+fn pivot_indexes(tableau: &mut matrix<f64>) -> (usize, usize) {
+	let pivot_column_index = argmin(tableau.row(0).slice(s![..-1]).to_owned());
 
 	let mut pivot_row_index = 0 as usize;
 	let mut minimum = f64::INFINITY;
@@ -351,17 +272,4 @@ fn argmin(arr: vector<f64>) -> usize {
 		}
 	}
 	argmin
-}
-
-fn argmax(arr: vector<f64>) -> usize {
-	let mut max = -f64::INFINITY;
-	let mut argmax: usize = 0;
-
-	for (i, value) in arr.into_iter().enumerate() {
-		if value > max {
-			max = value;
-			argmax = i;
-		}
-	}
-	argmax
 }

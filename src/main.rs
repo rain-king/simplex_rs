@@ -4,7 +4,7 @@ mod ndarray_io;
 mod simplex;
 use simplex_args::{Z, A, B};
 use ndarray_io as io;
-use simplex::two_phase_simplex;
+use simplex::big_m_simplex;
 use std::io::stdin;
 use std::io::BufRead; // needed to read empty lines without storing them
 
@@ -48,7 +48,7 @@ fn main() {
 		eq: b_eq
 	};
 
-	two_phase_simplex(z, a_matrix, b);
+	big_m_simplex(z, a_matrix, b);
 }
 
 fn read_bool() -> bool {
