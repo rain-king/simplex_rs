@@ -26,7 +26,7 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 		pretty_print_array2(&tableau);
 		println!();
 
-		if tableau.row(0)[tableau.ncols() -1] > 0.0 {
+		if tableau.row(0)[tableau.ncols() -1] > 1.0E-6 {
 			println!("The problem is infeasible.");
 			return basis;
 		}
