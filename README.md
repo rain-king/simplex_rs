@@ -26,7 +26,7 @@ You can parse a file `input.txt` with the following format using redirection `pr
 Notice the newline characters. Since when running the program interactively, the user is prompted to press Return again after every data input, except the last input.
 
 # Efficacy tests
-- Testing with `np.optimization.linprog` (with both `highs` and `simplex` methods), the `min_example4.txt` on our program gives the same target optimal value and the same optimal solution.
+- Testing with `np.optimization.linprog` (with both `highs` and `simplex` methods), the `min_example4.txt` on our program gives the same target optimal value and the same optimal solution (no feasible optimal solution). However, the model in this example is poorly stated, there should be no iquality $x_1+x_2+x_3+x_4 = 100$.
 - Testing maximization problems is a more trivial matter. So the `example2.txt` was done by hand and returned a correct answer in our program.
 
 # TO-DO
