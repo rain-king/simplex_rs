@@ -2,6 +2,7 @@ use core::f64;
 use crate::simplex_args::{A, B, Z};
 use crate::ndarray_io::pretty_print_array2;
 use ndarray::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
+const EPSILON: f64 = 1E-12;
 
 pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 	let mut tableau: matrix<f64>;
@@ -10,7 +11,8 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 
 	println!();
 	tableau = original_tableau(&z, &a_matrix, &b);
-	println!("The initial tableau is:");
+	println!("The original problem is:");
+	println!("{}", if z.maximize {"Maximization"} else {"Minimization"});
 	pretty_print_array2(&tableau);
 	println!();
 
@@ -26,7 +28,7 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 		pretty_print_array2(&tableau);
 		println!();
 
-		if tableau.row(0)[tableau.ncols() -1] > 1.0E-6 {
+		if tableau.row(0)[tableau.ncols() -1] > EPSILON {
 			println!("The problem is infeasible.");
 			return basis;
 		}
@@ -64,14 +66,11 @@ fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
 	let tableau_bottom = get_tableu_bottom(a, b);
 	let tableau_top: matrix<f64>;
 
-	let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&x| x < 0.0).count();
-	let n_leq_ineqs = a.ineq.column(0).iter().filter(|&&x| x >= 0.0).count();
+	let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&x| x <= -EPSILON).count();
 	let n_ineqs = a.ineq.nrows();
 	let n_eqs = a.eq.nrows();
 
-	let only_ineq_constraints = n_eqs == 0;
 	let only_leq_constraints = n_geq_ineqs + n_eqs == 0;
-	let only_eqs = n_ineqs == 0;
 
 	if only_leq_constraints {
 		// only ineq constraints, prepare for regular simplex
@@ -108,7 +107,7 @@ fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
 	if n_geq_ineqs > 0 {
 		// convert >= constraints into <= constraints
 		tableau.rows_mut().into_iter()
-			.filter(|row| row[row.len() - 1] < 0.0)
+			.filter(|row| row[row.len() - 1] <= -EPSILON)
 			.for_each(|row|
 				for value in row {
 					*value *= -1.0;
@@ -124,13 +123,13 @@ fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
 			pivot_row_range = 1..(n_eqs+1);
 		} else if a.eq.is_empty() {
 			// only >= constraints
-			let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&value| value < 0.0).count();
+			let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&value| value <= -EPSILON).count();
 			pivot_row_range = 1..(n_geq_ineqs+1);
 		} else {
 			pivot_row_range = (n_ineqs+1)..tableau.nrows();
 			pivot_vec = b.ineq.column(0).into_iter()
 					.enumerate()
-					.filter(|(_, &x)| x < 0.0)
+					.filter(|(_, &x)| x <= -EPSILON)
 					.map(|(i, _)| i+1)
 					.collect();
 		}
@@ -234,7 +233,7 @@ fn get_geq_artificials(b: &B) -> matrix<f64> {
 	let mut geq_artificials = matrix::zeros((b.ineq.nrows(), 0));
 	for (i, value) in b.ineq.column(0).iter().enumerate() {
 		let mut geq_artificial_column = matrix::zeros((b.ineq.nrows(), 1));
-		if *value < 0.0 {
+		if *value <= -EPSILON {
 			geq_artificial_column[(i, 0)] = -1.0;
 			geq_artificials = concatenate![Axis(1), geq_artificials, geq_artificial_column];
 		}
@@ -272,7 +271,7 @@ fn initialize_basis(tableau: matrix<f64>) -> Vec<(usize, usize)> {
 		let col = tableau.column(j).slice(s![1..]).to_owned();
 		if is_basic(col) {
 			for i in 1..tableau.nrows() {
-				if tableau[(i, j)] == 1.0 {
+				if (tableau[(i, j)] - 1.0).abs() <= EPSILON {
 					basis.push((i, j));
 				}
 			}
@@ -283,16 +282,16 @@ fn initialize_basis(tableau: matrix<f64>) -> Vec<(usize, usize)> {
 }
 
 fn is_basic(column: vector<f64>) -> bool {
-	let has_only_one_1 = column.iter().filter(|&&x| x == 1.0).count() == 1;
-	let everything_else_is_0 = column.iter().filter(|&&x| x == 0.0).count() == column.len() - 1;
+	let has_only_one_1 = column.iter().filter(|&&x| (x - 1.0).abs() < EPSILON).count() == 1;
+	let everything_else_is_0 = column.iter().filter(|&&x| x.abs() <= EPSILON).count() == column.len() - 1;
 	has_only_one_1 && everything_else_is_0
 }
 
 fn not_optimal(tableau: &mut matrix<f64>, maximize: bool) -> bool {
 	if maximize {
-		tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x < 0.0)
+		tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x <= -EPSILON)
 	} else {
-		tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x > 0.0)
+		tableau.row(0).slice(s![..-1]).into_iter().any(|&x| x >= EPSILON)
 	}
 }
 
@@ -327,7 +326,7 @@ fn pivot_indexes(tableau: &mut matrix<f64>, maximize: bool) -> (usize, usize) {
 	for (i, pivot_value) in tableau.column(pivot_column_index).into_iter().enumerate() {
 		if i > 0 {
 			let right_hand_side_value = tableau[(i, tableau.ncols() - 1)];
-			if *pivot_value > 0.0 {
+			if *pivot_value >= EPSILON {
 				let quotient = right_hand_side_value / pivot_value;
 				if quotient < minimum {
 					minimum = quotient;
