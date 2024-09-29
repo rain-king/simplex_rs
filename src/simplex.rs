@@ -111,21 +111,21 @@ fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
 	}
 
 	if !only_leq_constraints { // there are artificials
-		let pivot_row_range: std::ops::RangeInclusive<usize>;
+		let pivot_row_range: std::ops::Range<usize>;
 		let mut pivot_vec: Vec<usize> = Vec::new();
 		if a.ineq.is_empty() {
 			// only equality artificials, pivot second to last row
-			pivot_row_range = 1..=n_eqs;
+			pivot_row_range = 1..(n_eqs+1);
 		} else if a.eq.is_empty() {
 			// only >= constraints
 			let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&value| value < 0.0).count();
-			pivot_row_range = 1..=n_geq_ineqs;
+			pivot_row_range = 1..(n_geq_ineqs+1);
 		} else {
-			pivot_row_range = (n_ineqs+1)..=n_eqs;
+			pivot_row_range = (n_ineqs+1)..tableau.nrows();
 			pivot_vec = b.ineq.column(0).into_iter()
 					.enumerate()
 					.filter(|(_, &x)| x < 0.0)
-					.map(|(i, _)| i)
+					.map(|(i, _)| i+1)
 					.collect();
 		}
 
