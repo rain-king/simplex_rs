@@ -10,7 +10,7 @@ use ndarray as nd;
 pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 	let mut tableau: matrix<f64>;
 	let to_phase_two: bool;
-	let mut basis: Vec<(usize, usize)>;
+	let mut basis: Vec<(usize, usize)> = Vec::new();
 
 	println!();
 	tableau = original_tableau(&z, &a_matrix, &b);
@@ -29,7 +29,7 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 		pretty_print_array2(&tableau);
 		println!();
 
-		tableau = initialize_phase_two(tableau, z.c, basis);
+		tableau = initialize_phase_two(tableau, z.c, &basis);
 
 		println!("The initialized tableau for phase two is:");
 		pretty_print_array2(&tableau);
@@ -79,13 +79,14 @@ fn initialize_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
 		let mut w_top: matrix<f64> = matrix::zeros((1, tableau_bottom.ncols()));
 		let w_top_ncols = w_top.ncols().to_owned();
 		let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&value| value < 0.0).count();
+
 		let artificials_column_index_start =
 			w_top.ncols() - 1 - (n_geq_ineqs + a_matrix.eq.nrows());
 		w_top
 			.columns_mut()
 			.into_iter()
 			.enumerate()
-			.filter(|(j, _)| artificials_column_index_start <= *j && *j < w_top_ncols)
+			.filter(|(j, _)| artificials_column_index_start <= *j && *j < w_top_ncols - 1)
 			.for_each(|(_, column)| {
 				for value in column {
 					*value = -1.0;
@@ -99,9 +100,7 @@ fn initialize_phase_one(z: &Z, a_matrix: &A, b: &B) -> (matrix<f64>, bool) {
 	if !only_ineq_constraints {
 		if !a_matrix.ineq.is_empty() {
 			// convert >= constraints into <= constraints
-			tableau
-				.rows_mut()
-				.into_iter()
+			tableau.rows_mut().into_iter()
 				.filter(|row| row[row.len() - 1] < 0.0)
 				.for_each(|row| {
 					for value in row {
@@ -164,7 +163,7 @@ fn get_tableu_bottom(a_matrix: &A, b: &B) -> matrix<f64> {
 	concatenate![Axis(1), a_slacks_geq, stacked_b]
 }
 
-fn initialize_phase_two(tableau: matrix<f64>, c: matrix<f64>, basis: Vec<(usize, usize)>) -> matrix<f64> {
+fn initialize_phase_two(tableau: matrix<f64>, c: matrix<f64>, basis: &Vec<(usize, usize)>) -> matrix<f64> {
 	let z_top = concatenate![
 		Axis(1),
 		-c.to_owned(),
