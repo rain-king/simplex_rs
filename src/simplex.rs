@@ -5,7 +5,6 @@ use ndarray::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
 
 pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) {
 	let mut tableau: matrix<f64>;
-	let to_phase_two: bool;
 
 	println!();
 	tableau = original_tableau(&z, &a_matrix, &b);
@@ -13,6 +12,7 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) {
 	pretty_print_array2(&tableau);
 	println!();
 
+	let to_phase_two: bool;
 	(tableau, to_phase_two) = initialize_phase_one(&z, &a_matrix, &b);
 
 	let mut basis: Vec<(usize, usize)>;
@@ -41,11 +41,7 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) {
 	pretty_print_array2(&tableau);
 	println!();
 	
-	let objective_value = if z.maximize {
-		tableau[(0,tableau.ncols() - 1)]
-	} else {
-		-tableau[(0,tableau.ncols() - 1)]
-	};
+	let objective_value = tableau[(0,tableau.ncols() - 1)];
 	println!("The optimal objective value is: {objective_value}");
 	
 	let mut solution: Vec<(usize, f64)> = basis.iter()
@@ -144,10 +140,10 @@ fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
 		} else {
 			pivot_row_range = (n_ineqs+1)..tableau.nrows();
 			pivot_vec = b.ineq.column(0).into_iter()
-					.enumerate()
-					.filter(|(_, &x)| x < 0.0)
-					.map(|(i, _)| i+1)
-					.collect();
+				.enumerate()
+				.filter(|(_, &x)| x < 0.0)
+				.map(|(i, _)| i+1)
+				.collect();
 		}
 
 		for i in pivot_row_range.chain(pivot_vec) {
