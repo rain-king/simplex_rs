@@ -54,9 +54,5 @@ fn main() {
 fn read_bool() -> bool {
 	let mut input = String::new();
 	stdin().read_line(&mut input).unwrap();
-	if input.trim() == "1" {
-		true
-	} else {
-		false
-	}
+	input.trim() == "1"
 }

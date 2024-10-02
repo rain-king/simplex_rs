@@ -6,7 +6,6 @@ use ndarray::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
 pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) {
 	let mut tableau: matrix<f64>;
 	let to_phase_two: bool;
-	let mut basis: Vec<(usize, usize)> = Vec::new();
 
 	println!();
 	tableau = original_tableau(&z, &a_matrix, &b);
@@ -16,6 +15,7 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) {
 
 	(tableau, to_phase_two) = initialize_phase_one(&z, &a_matrix, &b);
 
+	let mut basis: Vec<(usize, usize)>;
 	if to_phase_two {
 		println!("The tableau before phase one is:");
 		pretty_print_array2(&tableau);
@@ -337,7 +337,7 @@ fn pivot_indexes(tableau: &mut matrix<f64>, maximize: bool) -> (usize, usize) {
 		argmax(tableau.row(0).slice(s![..-1]).to_owned())
 	};
 
-	let mut pivot_row_index = 0 as usize;
+	let mut pivot_row_index = 0;
 	let mut minimum = f64::INFINITY;
 	for (i, pivot_value) in tableau.column(pivot_column_index).into_iter().enumerate() {
 		if i > 0 {

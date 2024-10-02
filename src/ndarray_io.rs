@@ -9,7 +9,7 @@ pub fn read_matrix(message: &str) -> nd::Array2<f64> {
 	.flatten()
 	.collect();
 
-	if vec.len() != 0 {
+	if !vec.is_empty() {
 		nd::Array::from_shape_vec((vecvec.len(), vecvec[0].len()), vec).unwrap()
 	} else {
 		nd::Array2::zeros((0, 0))
@@ -19,7 +19,7 @@ pub fn read_matrix(message: &str) -> nd::Array2<f64> {
 pub fn read_row(message: &str) -> nd::Array2<f64> {
 	let vec = vec_io::read_vec(message);
 
-	if vec.len() != 0 {
+	if !vec.is_empty() {
 		nd::Array::from_shape_vec((1, vec.len()), vec).unwrap()
 	} else {
 		nd::Array2::zeros((0, 0))
@@ -29,7 +29,7 @@ pub fn read_row(message: &str) -> nd::Array2<f64> {
 pub fn read_column(message: &str) -> nd::Array2<f64> {
 	let vec = vec_io::read_vec(message);
 
-	if vec.len() != 0 {
+	if !vec.is_empty() {
 		nd::Array::from_shape_vec((vec.len(), 1), vec).unwrap()
 	} else {
 		nd::Array2::zeros((0, 0))
