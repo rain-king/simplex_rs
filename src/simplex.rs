@@ -3,7 +3,7 @@ use crate::simplex_args::{A, B, Z};
 use crate::ndarray_io::pretty_print_array2;
 use ndarray::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
 
-pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
+pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) {
 	let mut tableau: matrix<f64>;
 	let to_phase_two: bool;
 	let mut basis: Vec<(usize, usize)> = Vec::new();
@@ -26,12 +26,11 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 		pretty_print_array2(&tableau);
 		println!();
 
-		if tableau.row(0)[tableau.ncols() -1] > 1.0E-6 {
+		if tableau.row(0)[tableau.ncols() -1] > 1.0E-9 {
 			println!("The problem is infeasible.");
-			return basis;
 		}
 
-		tableau = initialize_phase_two(tableau, z.c, &basis);
+		tableau = initialize_phase_two(&tableau, &z.c, &basis);
 
 		println!("The initialized tableau for phase two is:");
 		pretty_print_array2(&tableau);
@@ -41,8 +40,27 @@ pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) -> Vec<(usize, usize)> {
 	println!("The final tableau is:");
 	pretty_print_array2(&tableau);
 	println!();
-
-	basis
+	
+	let objective_value = if z.maximize {
+		tableau[(0,tableau.ncols() - 1)]
+	} else {
+		-tableau[(0,tableau.ncols() - 1)]
+	};
+	println!("The optimal objective value is: {objective_value}");
+	
+	let mut solution: Vec<(usize, f64)> = basis.iter()
+		.map(|x|
+			(x.1 + 1, tableau.column(tableau.ncols() - 1)[x.0])
+		).collect();
+	solution.sort_by_key(|&(i, _)| i);
+	println!("The optimal solution is given by the decision variables with values:");
+	for i in 1..=z.c.ncols() {
+		if solution.iter().any(|x| x.0 == i) {
+			println!("x_{i} = {}", solution.iter().find(|&&(index, _)| index == i).unwrap().1)
+		} else {
+			println!("x_{i} = 0");
+		}
+	}
 }
 
 fn original_tableau(z: &Z, a_matrix: &A, b: &B) -> matrix<f64> {
@@ -65,13 +83,10 @@ fn initialize_phase_one(z: &Z, a: &A, b: &B) -> (matrix<f64>, bool) {
 	let tableau_top: matrix<f64>;
 
 	let n_geq_ineqs = b.ineq.column(0).iter().filter(|&&x| x < 0.0).count();
-	let n_leq_ineqs = a.ineq.column(0).iter().filter(|&&x| x >= 0.0).count();
 	let n_ineqs = a.ineq.nrows();
 	let n_eqs = a.eq.nrows();
 
-	let only_ineq_constraints = n_eqs == 0;
 	let only_leq_constraints = n_geq_ineqs + n_eqs == 0;
-	let only_eqs = n_ineqs == 0;
 
 	if only_leq_constraints {
 		// only ineq constraints, prepare for regular simplex
@@ -182,7 +197,7 @@ fn get_tableu_bottom(a_matrix: &A, b: &B) -> matrix<f64> {
 	concatenate![Axis(1), a_slacks_geq, stacked_b]
 }
 
-fn initialize_phase_two(tableau: matrix<f64>, c: matrix<f64>, basis: &Vec<(usize, usize)>) -> matrix<f64> {
+fn initialize_phase_two(tableau: &matrix<f64>, c: &matrix<f64>, basis: &Vec<(usize, usize)>) -> matrix<f64> {
 	let z_top = concatenate![
 		Axis(1),
 		-c.to_owned(),
