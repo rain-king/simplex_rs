@@ -3,39 +3,35 @@ use crate::simplex_args::{A, B, Z};
 use crate::ndarray_io::pretty_print_array2;
 use ndarray::{concatenate, s, Array1 as vector, Array2 as matrix, Axis};
 
-pub fn two_phase_simplex(z: Z, a_matrix: A, b: B) {
+pub fn two_phase_simplex(z: Z, a: A, b: B) {
 	let mut tableau: matrix<f64>;
 
 	println!();
-	tableau = original_tableau(&z, &a_matrix, &b);
+	tableau = original_tableau(&z, &a, &b);
 	println!("The initial tableau is:");
 	pretty_print_array2(&tableau);
 	println!();
 
 	let to_phase_two: bool;
-	(tableau, to_phase_two) = initialize_phase_one(&z, &a_matrix, &b);
+	(tableau, to_phase_two) = initialize_phase_one(&z, &a, &b);
 
 	let mut basis: Vec<(usize, usize)>;
 	if to_phase_two {
-		println!("The tableau before phase one is:");
-		pretty_print_array2(&tableau);
-		println!();
-
+		println!("Phase one:");
 		basis = iterations(z.maximize, &mut tableau);
-		println!("The tableau after phase one is:");
+		println!();
+		
+		println!("After phase one:");
 		pretty_print_array2(&tableau);
 		println!();
-
+		
 		if tableau.row(0)[tableau.ncols() -1] > 1.0E-9 {
 			println!("The problem is infeasible.");
 		}
 
-		tableau = initialize_phase_two(&tableau, &z.c, &basis);
-
-		println!("The initialized tableau for phase two is:");
-		pretty_print_array2(&tableau);
-		println!();
+		tableau = initialize_phase_two(&tableau, &z.c, &b.ineq, &basis);
 	}
+	if to_phase_two { println!("Phase two"); }
 	basis = iterations(z.maximize, &mut tableau);
 	println!("The final tableau is:");
 	pretty_print_array2(&tableau);
@@ -193,7 +189,7 @@ fn get_tableu_bottom(a_matrix: &A, b: &B) -> matrix<f64> {
 	concatenate![Axis(1), a_slacks_geq, stacked_b]
 }
 
-fn initialize_phase_two(tableau: &matrix<f64>, c: &matrix<f64>, basis: &Vec<(usize, usize)>) -> matrix<f64> {
+fn initialize_phase_two(tableau: &matrix<f64>, c: &matrix<f64>, b: &matrix<f64>, basis: &Vec<(usize, usize)>) -> matrix<f64> {
 	let z_top = concatenate![
 		Axis(1),
 		-c.to_owned(),
@@ -209,7 +205,7 @@ fn initialize_phase_two(tableau: &matrix<f64>, c: &matrix<f64>, basis: &Vec<(usi
 		.into_iter()
 		.enumerate()
 		.filter(|(j, _)| {
-			(0..c.ncols()).contains(j) || basis_cols.contains(j) || *j == (tableau.ncols() - 1)
+			(0..(c.ncols() + b.nrows())).contains(j) || *j == (tableau.ncols() - 1)
 		})
 		.map(|(_, column)| column.to_owned().to_vec())
 		.collect();
@@ -256,20 +252,19 @@ fn get_geq_artificials(b: &B) -> matrix<f64> {
 fn iterations(maximize: bool, tableau: &mut matrix<f64>) -> Vec<(usize, usize)> {
 	let mut basis = initialize_basis(tableau.to_owned());
 
-	let mut iteration = 1;
+	let mut iteration = 0;
 	while not_optimal(tableau, maximize) {
+		println!("Iteration {iteration}");
+		pretty_print_array2(&tableau);
+		println!();
+		
 		let (pivot_row_index, pivot_column_index) = pivot(tableau, maximize);
 		for element in basis.iter_mut() {
 			// variable with pivot column enters, variable with pivot row exits
 			if element.0 == pivot_row_index {
-				*element = (pivot_row_index, pivot_column_index);
+				element.1 = pivot_column_index;
 			}
 		}
-
-		println!("Iteration {iteration}");
-		pretty_print_array2(&tableau);
-		println!();
-
 		iteration += 1;
 	}
 
@@ -319,7 +314,7 @@ fn pivot(tableau: &mut matrix<f64>, maximize: bool) -> (usize, usize) {
 	for mut row in tableau.rows_mut().into_iter() {
 		if row != pivot_row {
 			let pivot_value = row[pivot_column_index];
-			row.zip_mut_with(&pivot_row, |r, p| *r -= p * pivot_value);
+			row.zip_mut_with(&pivot_row, |r, p| *r -= *p * pivot_value);
 		}
 	}
 
@@ -335,19 +330,18 @@ fn pivot_indexes(tableau: &mut matrix<f64>, maximize: bool) -> (usize, usize) {
 
 	let mut pivot_row_index = 0;
 	let mut minimum = f64::INFINITY;
-	for (i, pivot_value) in tableau.column(pivot_column_index).into_iter().enumerate() {
+	for (i, &pivot_value) in tableau.column(pivot_column_index).into_iter().enumerate() {
 		if i > 0 {
 			let right_hand_side_value = tableau[(i, tableau.ncols() - 1)];
-			if *pivot_value > 0.0 {
-				let quotient = right_hand_side_value / pivot_value;
-				if quotient < minimum {
-					minimum = quotient;
+			if pivot_value > 0.0 {
+				let quotient_abs = (right_hand_side_value / pivot_value).abs();
+				if quotient_abs < minimum {
+					minimum = quotient_abs;
 					pivot_row_index = i;
 				}
 			}
 		}
 	}
-
 	(pivot_row_index, pivot_column_index)
 }
 
